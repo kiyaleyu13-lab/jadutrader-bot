@@ -57,17 +57,18 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         image = Image.open(io.BytesIO(photo_bytes))
 
         analysis_prompt = """
-        You are an expert Forex, Crypto, and Smart Money Concepts (SMC) Trader.
-        Analyze the provided trading chart image in detail and provide the analysis in Amharic language using clear formatting:
+        You are an expert Forex, Crypto, and Smart Money Concepts (SMC) Trader, as well as a Macroeconomic Analyst.
+        Analyze the provided trading chart image in detail and provide a comprehensive analysis in Amharic language using clear formatting:
 
         1. 📊 **Trend & Market Structure**: Overall trend, BOS, and CHOCH.
         2. 🏦 **SMC Elements**: Order Blocks (OB), FVG, and Liquidity Sweeps.
         3. 📉 **Technical Levels**: Major Support and Resistance.
-        4. 🎯 **Trade Setup**: Bias (BUY/SELL), Entry, SL, TP, RR.
-        5. ⚠️ **Risk Warning**.
+        4. 🌍 **Fundamental & News Context**: ወቅታዊ ከዚህ ንብረት (Asset - ለምሳሌ ወርቅ/Gold ወይም ዩኤስዲ) ጋር ተያዥነት ያላቸው ማክሮ ኢኮኖሚ ዜናዎች፣ የወለድ መጠን፣ የዋጋ ንረት (Inflation) ወይም ጂኦፖለቲካዊ ሁኔታዎች አጠቃላይ ተፅዕኖ።
+        5. 🎯 **Trade Setup**: Bias (BUY/SELL), Entry, SL, TP, RR.
+        6. ⚠️ **Risk Warning**.
 
-        Keep the explanation professional and completely in Amharic.
-        """       
+        Keep the explanation professional, insightful, and completely in Amharic.
+        """   
 # በ Gemini AI ፎቶውን መተንተን
         response = ai_client.models.generate_content(
             model='gemini-3.8-flash',  # እዚህ ጋር gemini-3.8-flash ብለህ አስገባ
