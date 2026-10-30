@@ -78,7 +78,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # በ Gemini AI ፎቶውን መተንተን
         response = ai_client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-1.5-flash',
             contents=[image, analysis_prompt]
         )
 
