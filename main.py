@@ -15,7 +15,7 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-# Render Port Timeout ለመከላከል የሚረዳ ትንሽ ዌብ ሰርቨር (Dummy HTTP Server)
+# Render Port Timeout ለመከላከል የሚረዳ ትንሽ ዌብ ሰርቨር
 class HealthCheckHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -28,24 +28,23 @@ def run_web_server():
     logging.info(f"🌐 ዌብ ሰርቨር በፖርት {port} ላይ ተጀምሯል...")
     server.serve_forever()
 
-# 1. API Keys (ከ Environment Variables ይወሰዳሉ)
+# API Keys
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 # Gemini Client ማዘጋጀት
 ai_client = genai.Client(api_key=GEMINI_API_KEY)
 
-# 2. Start Command
+# Start Command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_text = (
         "ሰላም! እኔ የ AI Forex & SMC Trading Analyst ቦት ነኝ። 🤖📊\n\n"
-        "የምንዛሬ ወይም የክሪፕቶ የChart ስክሪንሾት (M5, M15, M30, H1, H4) ላክልኝ፤ "
-        "እኔ ደግሞ Technical Analysis፣ SMC Analysis፣ Liquidity Sweep እና ሊታሰቡ የሚችሉ "
-        "Entry, Stop Loss (SL), Take Profit (TP) ደረጃዎችን አዘጋጅቼ እልክልሃለሁ!"
+        "የምንዛሬ ወይም የክሪፕቶ የChart ስክሪንሾት ላክልኝ፤ "
+        "እኔ ደግሞ Technical Analysis፣ SMC Analysis እና Trade Setup አዘጋጅቼ እልክልሃለሁ!"
     )
     await update.message.reply_text(welcome_text)
 
-# 3. የChart ፎቶ ተቀብሎ የመተንተን ተግባር
+# የChart ፎቶ ተቀብሎ የመተንተን ተግባር
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     status_msg = await update.message.reply_text("⏳ የChart ፎቶህን እየተነተንኩ ነው... እባክህ ትንሽ ጠብቀኝ...")
 
@@ -57,26 +56,20 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # ፎቶውን ወደ PIL Image መቀየር
         image = Image.open(io.BytesIO(photo_bytes))
 
-        # ለ AI የሚሰጥ ዝርዝር Prompt (System Prompt)
         analysis_prompt = """
         You are an expert Forex, Crypto, and Smart Money Concepts (SMC) Trader.
         Analyze the provided trading chart image in detail and provide the analysis in Amharic language using clear formatting:
 
-        1. 📊 **Trend & Market Structure**: Overall trend (Bullish/Bearish/Ranging), Break of Structure (BOS), and Change of Character (CHOCH).
-        2. 🏦 **SMC Elements**: Identify key Order Blocks (OB), Fair Value Gaps (FVG), and Liquidity Sweeps if present.
-        3. 📉 **Technical Levels**: Major Support and Resistance zones.
-        4. 🎯 **Trade Setup Proposal (Educational only)**:
-           - Potential Bias: (BUY / SELL)
-           - Suggested Entry Zone
-           - Stop Loss (SL)
-           - Take Profit (TP1, TP2)
-           - Risk to Reward Ratio
-        5. ⚠️ **Risk Warning**: Remind the user to manage risk carefully.
+        1. 📊 **Trend & Market Structure**: Overall trend, BOS, and CHOCH.
+        2. 🏦 **SMC Elements**: Order Blocks (OB), FVG, and Liquidity Sweeps.
+        3. 📉 **Technical Levels**: Major Support and Resistance.
+        4. 🎯 **Trade Setup**: Bias (BUY/SELL), Entry, SL, TP, RR.
+        5. ⚠️ **Risk Warning**.
 
-        Keep the explanation professional, direct, structured, and completely in Amharic.
+        Keep the explanation professional and completely in Amharic.
         """
 
-        # በ Gemini AI ፎቶውን መተንተን
+        # በ Gemini AI ፎቶውን መተንተን (gemini-2.0-flash በመጠቀም)
         response = ai_client.models.generate_content(
             model='gemini-2.0-flash',
             contents=[image, analysis_prompt]
@@ -87,7 +80,8 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         logging.error(f"Error during analysis: {e}")
-        await status_msg.edit_text("❌ አፎይ! ፎቶውን መተንተን አልተቻለም። እባክህ የፎቶውን ጥራት አረጋግጠህ እንደገና ሞክር።")
+        # ትክክለኛው ኤረር ምን እንደሆነ በቴሌግራም እንዲነግረን እናደርጋለን
+        await status_msg.edit_text(f"❌ ኤረር አጋጥሟል: {str(e)}")
 
 # Main Function
 def main():
@@ -95,7 +89,7 @@ def main():
         print("❌ እባክህ TELEGRAM_BOT_TOKEN እና GEMINI_API_KEY በ Environment Variables ውስጥ አስገባ!")
         return
 
-    # Render ፖርት እንዲያገኝ ዌብ ሰርቨርን በ Background Thread ማስጀመር
+    # ዌብ ሰርቨርን በ Background Thread ማስጀመር
     server_thread = threading.Thread(target=run_web_server, daemon=True)
     server_thread.start()
 
