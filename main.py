@@ -67,13 +67,13 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         5. ⚠️ **Risk Warning**.
 
         Keep the explanation professional and completely in Amharic.
-        """
-
-        # በ Gemini AI ፎቶውን መተንተን (gemini-2.0-flash በመጠቀም)
+        """       
+# በ Gemini AI ፎቶውን መተንተን
         response = ai_client.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-3.8-flash',  # እዚህ ጋር gemini-3.8-flash ብለህ አስገባ
             contents=[image, analysis_prompt]
         )
+
 
         # ውጤቱን ለተጠቃሚው መላክ
         await status_msg.edit_text(response.text)
