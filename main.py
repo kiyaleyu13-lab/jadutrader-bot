@@ -1,11 +1,12 @@
 import os
 import logging
 import threading
+import asyncio
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 from google import genai
-from PIL import Image
+from PIL import Image, ImageDraw
 import io
 
 # Logging ማስተካከያ
@@ -24,7 +25,6 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
 def run_web_server():
     port = int(os.environ.get("PORT", 10000))
     server = HTTPServer(('0.0.0.0', port), HealthCheckHandler)
-    logging.info(f"🌐 ዌብ ሰርቨር በፖርት {port} ላይ ተጀምሯል...")
     server.serve_forever()
 
 # API Keys
@@ -34,36 +34,74 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 # Gemini Client ማዘጋጀት
 ai_client = genai.Client(api_key=GEMINI_API_KEY)
 
+# ተጠቃሚዎችን ለመያዝ የሚረዳ ዝርዝር
+ACTIVE_CHAT_IDS = set()
+
 # Start Command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    ACTIVE_CHAT_IDS.add(chat_id)
+    
     welcome_text = (
         "ሰላም! እኔ የ AI Forex & SMC Trading Analyst ቦት ነኝ። 🤖📊\n\n"
-        "የምንዛሬ ወይም የክሪፕቶ የChart ስክሪንሾት ላክልኝ፤ "
-        "እኔ ደግሞ Technical Analysis፣ SMC Analysis እና Trade Setup አዘጋጅቼ እልክልሃለሁ!"
+        "✅ አሁን ቦቱ እጅግ ፈጣን በሆነ መልኩ ይሰራል!\n"
+        "የምንዛሬ ወይም የክሪፕቶ የChart ስክሪንሾት ላክልኝ፤ በሰከንዶች ውስጥ ትንተና እና ሴታፕ እልክልሃለሁ።"
     )
     await update.message.reply_text(welcome_text)
 
-# የChart ፎቶ ተቀብሎ የመተንተን ተግባር
+# አውቶማቲክ የዜና ማሳሰቢያ በጀርባ (Background Task) የሚሰራ
+async def periodic_news_sender(application):
+    await asyncio.sleep(10)
+    while True:
+        try:
+            if ACTIVE_CHAT_IDS:
+                news_prompt = """
+                Provide a quick, high-impact daily Forex market and news briefing in Amharic. 
+                Keep it concise and professional.
+                """
+                
+                response = ai_client.models.generate_content(
+                    model='gemini-3.8-flash',
+                    contents=[news_prompt]
+                )
+                
+                if response and hasattr(response, 'text') and response.text:
+                    news_text = f"📰 **የገበያ እና ፋንዳሜታል ዜና ማሳሰቢያ**\n\n{response.text}"
+                    
+                    for chat_id in list(ACTIVE_CHAT_IDS):
+                        try:
+                            await application.bot.send_message(chat_id=chat_id, text=news_text)
+                        except Exception as e:
+                            logging.error(f"Failed to send news to {chat_id}: {e}")
+            
+            await asyncio.sleep(21600) 
+        except Exception as e:
+            logging.error(f"Error in periodic news sender: {e}")
+            await asyncio.sleep(300)
+
+# የChart ፎቶ ተቀብሎ በፍጥነት የመተንተን ተግባር
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    status_msg = await update.message.reply_text("⏳ የChart ፎቶህን እየተነተንኩ ነው... እባክህ ትንሽ ጠብቀኝ...")
+    chat_id = update.effective_chat.id
+    ACTIVE_CHAT_IDS.add(chat_id)
+    
+    status_msg = await update.message.reply_text("⏳ ቻርቱን በፍጥነት እየተነተንኩ ነው...")
 
     try:
         photo_file = await update.message.photo[-1].get_file()
         photo_bytes = await photo_file.download_as_bytearray()
         
-        # ፎቶውን በመጠን መቀነስ
+        # ፎቶውን መጠኑን መቀነስ (ለፈጣን AI ማቀናበሪያ)
         image = Image.open(io.BytesIO(photo_bytes))
-        image.thumbnail((1024, 1024))
+        image.thumbnail((800, 800))
 
+        # አጭር እና ፈጣን ፕረምፕ
         analysis_prompt = """
-        You are an expert Forex, Crypto, and Smart Money Concepts (SMC) Trader.
-        Analyze the provided trading chart image in detail and provide the analysis in Amharic language using clear formatting:
-        1. 📊 Trend & Market Structure (BOS, CHOCH)
-        2. 🏦 SMC Elements (Order Blocks, FVG)
-        3. 📉 Support & Resistance
-        4. 🌍 Fundamental & Forex Factory News Context
-        5. 🎯 Trade Setup (Bias, Entry, SL, TP)
-        Keep it professional and entirely in Amharic.
+        Analyze this Forex/Crypto chart and provide in Amharic:
+        1. 📊 Trend & SMC (BOS, CHOCH, Order Blocks)
+        2. 📉 Key Support & Resistance
+        3. 🎯 Trade Setup (Bias, Entry, SL, TP)
+        4. 🛡️ Required Confirmation before entry
+        Keep it concise, structured, and entirely in Amharic.
         """
 
         response = ai_client.models.generate_content(
@@ -72,7 +110,24 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
         if response and hasattr(response, 'text') and response.text:
-            await status_msg.edit_text(response.text)
+            analysis_text = response.text
+
+            draw_image = image.copy()
+            width, height = draw_image.size
+            banner_height = 60
+            new_image = Image.new("RGB", (width, height + banner_height), (20, 20, 20))
+            new_image.paste(draw_image, (0, 0))
+            
+            draw_banner = ImageDraw.Draw(new_image)
+            draw_banner.text((15, height + 20), "🤖 Jadu AI Forex & SMC Signal Bot", fill=(0, 255, 128))
+
+            bio = io.BytesIO()
+            bio.name = 'signal_chart.jpg'
+            new_image.save(bio, 'JPEG')
+            bio.seek(0)
+
+            await status_msg.delete()
+            await update.message.reply_photo(photo=bio, caption=analysis_text)
         else:
             await status_msg.edit_text("❌ ኤአይ ሞዴሉ ምላሽ አልሰጠም፣ እባክዎ እንደገና ይሞክሩ።")
 
@@ -80,17 +135,14 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logging.error(f"Error during analysis: {e}")
         await status_msg.edit_text(f"❌ ስህተት ተፈጥሯል: {str(e)}")
 
-# Global Error Handler
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     logging.error(msg="Exception while handling an update:", exc_info=context.error)
 
-# Main Function
 def main():
     if not TELEGRAM_BOT_TOKEN or not GEMINI_API_KEY:
         print("❌ እባክህ TELEGRAM_BOT_TOKEN እና GEMINI_API_KEY በ Environment Variables ውስጥ አስገባ!")
         return
 
-    # ዌብ ሰርቨርን በ Background Thread ማስጀመር (Render Port Timeout ለመከላከል)
     server_thread = threading.Thread(target=run_web_server, daemon=True)
     server_thread.start()
 
@@ -100,7 +152,12 @@ def main():
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_error_handler(error_handler)
 
-    print("🚀 ቦቱ መስራት ጀምሯል...")
+    async def post_init(application):
+        asyncio.create_task(periodic_news_sender(application))
+
+    app.post_init = post_init
+
+    print("🚀 ቦቱ እጅግ ፈጣን በሆነ ሁነታ ስራ ጀምሯል...")
     app.run_polling()
 
 if __name__ == '__main__':
