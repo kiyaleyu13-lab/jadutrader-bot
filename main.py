@@ -36,7 +36,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         photo_file = await update.message.photo[-1].get_file()
         photo_bytes = await photo_file.download_as_bytearray()
         
-        # ፎቶውን በመጠን መቀነስ (ለፈጣን ጭነት እና ትንተና)
+        # ፎቶውን በመጠን መቀነስ
         image = Image.open(io.BytesIO(photo_bytes))
         image.thumbnail((1024, 1024))
 
@@ -65,6 +65,10 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logging.error(f"Error during analysis: {e}")
         await status_msg.edit_text(f"❌ ስህተት ተፈጥሯል: {str(e)}")
 
+# Global Error Handler (ኤረር ሲኖር በሎግ እንዲመዘገብ)
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
+    logging.error(msg="Exception while handling an update:", exc_info=context.error)
+
 # Main Function
 def main():
     if not TELEGRAM_BOT_TOKEN or not GEMINI_API_KEY:
@@ -75,6 +79,9 @@ def main():
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
+    
+    # Error Handler ማስገባት
+    app.add_error_handler(error_handler)
 
     print("🚀 ቦቱ መስራት ጀምሯል...")
     app.run_polling()
