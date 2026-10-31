@@ -1,5 +1,7 @@
 import os
 import logging
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 from google import genai
@@ -11,6 +13,19 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
+
+# Render Port Timeout ለመከላከል የሚረዳ ዌብ ሰርቨር
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Jadutrader_bot is running successfully!")
+
+def run_web_server():
+    port = int(os.environ.get("PORT", 10000))
+    server = HTTPServer(('0.0.0.0', port), HealthCheckHandler)
+    logging.info(f"🌐 ዌብ ሰርቨር በፖርት {port} ላይ ተጀምሯል...")
+    server.serve_forever()
 
 # API Keys
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
@@ -65,7 +80,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logging.error(f"Error during analysis: {e}")
         await status_msg.edit_text(f"❌ ስህተት ተፈጥሯል: {str(e)}")
 
-# Global Error Handler (ኤረር ሲኖር በሎግ እንዲመዘገብ)
+# Global Error Handler
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     logging.error(msg="Exception while handling an update:", exc_info=context.error)
 
@@ -75,12 +90,14 @@ def main():
         print("❌ እባክህ TELEGRAM_BOT_TOKEN እና GEMINI_API_KEY በ Environment Variables ውስጥ አስገባ!")
         return
 
+    # ዌብ ሰርቨርን በ Background Thread ማስጀመር (Render Port Timeout ለመከላከል)
+    server_thread = threading.Thread(target=run_web_server, daemon=True)
+    server_thread.start()
+
     app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
-    
-    # Error Handler ማስገባት
     app.add_error_handler(error_handler)
 
     print("🚀 ቦቱ መስራት ጀምሯል...")
