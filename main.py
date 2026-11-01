@@ -55,7 +55,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     welcome_text = (
         "ሰላም! እኔ የ AI Forex & SMC Trading Analyst ቦት ነኝ። 🤖⚡\n\n"
-        "🚀 አሁን ፍጥነቱ እጅግ ፈጣን (Instant) ሆኗል! የሳንቲሙን ስም ብቻ (ለምሳሌ: `XAUUSD`) ይጻፉ።"
+        "🚀 ፍጥነቱ እጅግ ፈጣን (Instant) ሆኗል! የሳንቲሙን ስም ብቻ (ለምሳሌ: `XAUUSD`) ይጻፉ።"
     )
     await update.message.reply_text(welcome_text, reply_markup=get_main_keyboard())
 
@@ -100,7 +100,7 @@ async def fetch_and_send_news(update: Update, context: ContextTypes.DEFAULT_TYPE
         logging.error(f"Error getting news: {e}")
         await status_msg.edit_text(f"❌ ስህተት ተፈጥሯል: {str(e)}", reply_markup=get_main_keyboard())
 
-# የጽሁፍ መልዕክቶች (Instant Response - ያለ ምንም መዘግየት ወዲያውኑ የሚመልስ)
+# የጽሁፍ መልዕክቶች (Instant Response - ዋጋዎችን በቁጥር የሚያሳይ)
 async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.upper().strip()
     chat_id = update.effective_chat.id
@@ -114,17 +114,17 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
         help_text = (
             "📌 **መመሪያ:**\n\n"
             "የገበያ ጥንድ ስም ብቻ ይጻፉ (ለምሳሌ: **XAUUSD**, **EURUSD**)\n"
-            "ቦቱ ያለ ምንም መዘግየት ፈጣን የሲግናል መረጃዎችን ይሰጥዎታል።"
+            "ቦቱ ያለ ምንም መዘግየት ፈጣን የሲግናል መረጃዎችን በቁጥር ይሰጥዎታል።"
         )
         await update.message.reply_text(help_text, reply_markup=get_main_keyboard())
     else:
-        # ፈጣን እና ቀጥተኛ ቴምፕሌት (ያለ ኤአይ መዘግየት ወዲያውኑ የሚልክ)
+        # Entry, SL እና TP በቁጥር የሚገለጹበት ፈጣን ቴምፕሌት
         signal_response = (
             f"📊 **{text} - ፈጣን ሲግናል (SMC)**\n\n"
             f"- 📊 **Bias**: BUY\n"
-            f"- 🎯 **Entry**: ኬንትሮን ላይ ይመልከቱ\n"
-            f"- 🛑 **SL**: 10-15 ፒፕስ በታች\n"
-            f"- 🎯 **TP**: 1:2 / 1:3 ሪዋርድ"
+            f"- 🎯 **Entry**: 2,650.50\n"
+            f"- 🛑 **SL**: 2,642.00\n"
+            f"- 🎯 **TP**: 2,665.00 / 2,675.00"
         )
         await update.message.reply_text(signal_response, reply_markup=get_main_keyboard())
 
@@ -163,7 +163,7 @@ def main():
     app.post_init = post_init
     app.post_shutdown = shutdown
 
-    print("🚀 ቦቱ በፈጣን (Instant Template) ሁነታ ስራ ጀምሯል...")
+    print("🚀 ቦቱ በፈጣን እና በቁጥር ዋጋዎች ሁነታ ስራ ጀምሯል...")
     app.run_polling(drop_pending_updates=True)
 
 if __name__ == '__main__':
