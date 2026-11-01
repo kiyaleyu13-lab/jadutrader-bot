@@ -40,8 +40,9 @@ ai_client = genai.Client(api_key=GEMINI_API_KEY)
 
 # ተጠቃሚዎችን ለመያዝ የሚረዳ ዝርዝር
 ACTIVE_CHAT_IDS = set()
+news_task = None  # የታስኩን ሁኔታ ለመቆጣጠር
 
-# ቋሚ አዝራሮች (Start እና ሌሎች ሜኑዎች የተካተቱበት)
+# ቋሚ አዝራሮች
 def get_main_keyboard():
     keyboard = [
         [KeyboardButton("🚀 Start / ቦቱን አንቃ"), KeyboardButton("📰 እለታዊ Forex Factory ዜና")],
@@ -61,11 +62,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     await update.message.reply_text(welcome_text, reply_markup=get_main_keyboard())
 
-# አውቶማቲክ የዜና ማሳሰቢያ በጀርባ (Background Task) የሚሰራ
+# አውቶማቲክ የዜና ማሳሰቢያ በጀርባ (Background Task) የሚሰራ (ለስላሳ ስረዛ ያለው)
 async def periodic_news_sender(application):
     await asyncio.sleep(15)
-    while True:
-        try:
+    try:
+        while True:
             if ACTIVE_CHAT_IDS:
                 news_prompt = """
                 You are an expert Forex Fundamental Analyst and Forex Factory news strategist.
@@ -91,9 +92,8 @@ async def periodic_news_sender(application):
                             logging.error(f"Failed to send news to {chat_id}: {e}")
             
             await asyncio.sleep(21600) 
-        except Exception as e:
-            logging.error(f"Error in periodic news sender: {e}")
-            await asyncio.sleep(300)
+    except asyncio.CancelledError:
+        logging.info("Periodic news task successfully cancelled.")
 
 # ዜና ማምጫ ፌንክሽን
 async def fetch_and_send_news(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -222,6 +222,7 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     logging.error(msg="Exception while handling an update:", exc_info=context.error)
 
 def main():
+    global news_task
     if not TELEGRAM_BOT_TOKEN or not GEMINI_API_KEY:
         print("❌ እባክህ API Keys አስገባ!")
         return
@@ -238,12 +239,23 @@ def main():
     app.add_error_handler(error_handler)
 
     async def post_init(application):
-        asyncio.create_task(periodic_news_sender(application))
+        global news_task
+        news_task = asyncio.create_task(periodic_news_sender(application))
+
+    async def shutdown(application):
+        global news_task
+        if news_task:
+            news_task.cancel()
+            try:
+                await news_task
+            except asyncio.CancelledError:
+                pass
 
     app.post_init = post_init
+    app.post_shutdown = shutdown
 
     print("🚀 ቦቱ ሙሉ ትንተና እና ዜና ማሳሰቢያ ሁነታ ስራ ጀምሯል...")
     app.run_polling(drop_pending_updates=True)
 
-if __name__ == 'main__':
+if __name__ == '__main__':
     main()
