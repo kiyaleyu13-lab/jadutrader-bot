@@ -44,8 +44,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     welcome_text = (
         "ሰላም! እኔ የ AI Forex & SMC Trading Analyst ቦት ነኝ። 🤖📊\n\n"
-        "✅ ሙሉ ትንተና፣ SMC ሴታፕ፣ ማረጋገጫዎች (Confirmations) እና አውቶማቲክ ዜናዎች ተስተካክለዋል!\n"
-        "የምንዛሬ ወይም የክሪፕቶ የChart ስክሪንሾት ላክልኝ።"
+        "✅ ሙሉ ትንተና፣ SMC ሴታፕ፣ ማረጋገጫዎች (Confirmations) እና የ Forex Factory ዜናዎች ዝግጁ ናቸው!\n"
+        "የምንዛሬ ወይም የክሪፕቶ የChart ስክሪንሾት ላክልኝ፤ ወይም /news በመጻፍ የዜና ትንተና ማግኘት ትችላለህ።"
     )
     await update.message.reply_text(welcome_text)
 
@@ -56,9 +56,12 @@ async def periodic_news_sender(application):
         try:
             if ACTIVE_CHAT_IDS:
                 news_prompt = """
-                Provide an important daily Forex and Macroeconomic market briefing in Amharic. 
-                Include major economic focal points, high-impact news to watch out for (like USD, Gold, Inflation, Interest Rates), 
-                and professional advice for traders. Keep it structured, insightful, and entirely in Amharic.
+                You are an expert Forex Fundamental Analyst and Forex Factory news strategist.
+                Provide a detailed, professional daily and weekly market news briefing in Amharic focusing on:
+                1. 🌍 High-Impact Forex Factory News (CPI, NFP, Interest Rate decisions, GDP).
+                2. 🪙 Market Sentiment on major pairs and Gold (XAUUSD).
+                3. 💡 Professional advice on how traders should manage risk during these news events.
+                Keep it highly structured, professional, and entirely in Amharic.
                 """
                 
                 response = ai_client.models.generate_content(
@@ -67,7 +70,7 @@ async def periodic_news_sender(application):
                 )
                 
                 if response and hasattr(response, 'text') and response.text:
-                    news_text = f"📰 **የወቅታዊ ገበያ እና ፋንዳሜታል ዜና ማሳሰቢያ**\n\n{response.text}"
+                    news_text = f"📰 **የ Forex Factory እና ማክሮ ኢኮኖሚ የዜና ትንተና**\n\n{response.text}"
                     
                     for chat_id in list(ACTIVE_CHAT_IDS):
                         try:
@@ -75,10 +78,38 @@ async def periodic_news_sender(application):
                         except Exception as e:
                             logging.error(f"Failed to send news to {chat_id}: {e}")
             
-            await asyncio.sleep(21600) # በየ 6 ሰዓቱ
+            # በየ 6 ሰዓቱ በራሱ ሰዓት ይልካል
+            await asyncio.sleep(21600) 
         except Exception as e:
             logging.error(f"Error in periodic news sender: {e}")
             await asyncio.sleep(300)
+
+# ተጠቃሚው በ ትዕዛዝ (/news) የገበያ እና የፋብሪካ ዜናዎችን ማግኘት ሲፈልግ
+async def get_news_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    ACTIVE_CHAT_IDS.add(chat_id)
+    
+    status_msg = await update.message.reply_text("⏳ የ Forex Factory እና የገበያ ዜናዎችን እያዘጋጀሁ ነው...")
+
+    try:
+        news_prompt = """
+        Provide a current Forex Factory and macroeconomic news analysis in Amharic, highlighting key upcoming events, high-impact news, and market bias.
+        Keep it professional and entirely in Amharic.
+        """
+        
+        response = ai_client.models.generate_content(
+            model='gemini-3.8-flash',
+            contents=[news_prompt]
+        )
+
+        if response and hasattr(response, 'text') and response.text:
+            await status_msg.edit_text(f"📰 **የ Forex Factory ዜና ትንተና**\n\n{response.text}")
+        else:
+            await status_msg.edit_text("❌ ዜናውን ማግኘት አልተቻለም።")
+
+    except Exception as e:
+        logging.error(f"Error getting news: {e}")
+        await status_msg.edit_text(f"❌ ስህተት ተፈጥሯል: {str(e)}")
 
 # የChart ፎቶ ተቀብሎ በጥልቀት የመተንተን ተግባር (በ Timeout ጥበቃ)
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -89,7 +120,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         photo_file = await update.message.photo[-1].get_file()
-        photo_bytes = await asyncio.wait_for(photo_file.download_as_bytearray(), timeout=20.0)
+        photo_bytes = await asyncio.wait_for(photo_file.download_as_bytearray(), timeout=30.0)
         
         image = Image.open(io.BytesIO(photo_bytes))
         image.thumbnail((1024, 1024))
@@ -120,7 +151,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     contents=[image, analysis_prompt]
                 )
             ),
-            timeout=35.0
+            timeout=50.0
         )
 
         if response and hasattr(response, 'text') and response.text:
@@ -147,7 +178,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except asyncio.TimeoutError:
         logging.error("Analysis operation timed out.")
-        await status_msg.edit_text("⏱️ ትንተናው ጊዜ ወስዷል። እባክዎ ቻርቱን እንደገና ይላኩ።")
+        await status_msg.edit_text("⏱️ ትንተናው ትንሽ ጊዜ ወስዷል። እባክዎ ቻርቱን እንደገና ይላኩ።")
     except Exception as e:
         logging.error(f"Error during analysis: {e}")
         await status_msg.edit_text(f"❌ ስህተት ተፈጥሯል: {str(e)}")
@@ -166,6 +197,7 @@ def main():
     app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("news", get_news_command))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_error_handler(error_handler)
 
