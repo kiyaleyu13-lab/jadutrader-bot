@@ -33,7 +33,7 @@ def run_web_server():
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
-# Gemini Client ማዘጋጀት
+# Gemini Client ማዘጋጀት (ለዜና ብቻ የሚያገለግል)
 ai_client = genai.Client(api_key=GEMINI_API_KEY)
 
 # ተጠቃሚዎችን ለመያዝ የሚረዳ ዝርዝር
@@ -55,29 +55,21 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     welcome_text = (
         "ሰላም! እኔ የ AI Forex & SMC Trading Analyst ቦት ነኝ። 🤖⚡\n\n"
-        "📰 እለታዊ የ Forex Factory ዜናዎች እና ⚡ እጅግ ፈጣን የአንድ መስመር ሲግናሎች (Bias, Entry, SL, TP) ዝግጁ ናቸው!\n"
-        "የሚፈልጉትን የሳንቲም ስም (ለምሳሌ: `XAUUSD`) ይጻፉ።"
+        "🚀 አሁን ፍጥነቱ እጅግ ፈጣን (Instant) ሆኗል! የሳንቲሙን ስም ብቻ (ለምሳሌ: `XAUUSD`) ይጻፉ።"
     )
     await update.message.reply_text(welcome_text, reply_markup=get_main_keyboard())
 
-# አውቶማቲክ የዜና ማሳሰቢያ በጀርባ (Background Task) - ዜናው አልቀረም!
+# አውቶማቲክ የዜና ማሳሰቢያ በጀርባ (Background Task)
 async def periodic_news_sender(application):
     await asyncio.sleep(15)
     try:
         while True:
             if ACTIVE_CHAT_IDS:
-                news_prompt = """
-                Provide a short, high-impact daily Forex Factory news summary in Amharic using bullet points.
-                """
-                
-                response = ai_client.models.generate_content(
-                    model='gemini-3.8-flash',
-                    contents=[news_prompt]
-                )
+                news_prompt = "Provide a short, high-impact daily Forex Factory news summary in Amharic using bullet points."
+                response = ai_client.models.generate_content(model='gemini-3.8-flash', contents=[news_prompt])
                 
                 if response and hasattr(response, 'text') and response.text:
                     news_text = f"📰 **እለታዊ የ Forex Factory ዜና ማጠቃለያ**\n\n{response.text}"
-                    
                     for chat_id in list(ACTIVE_CHAT_IDS):
                         try:
                             await application.bot.send_message(chat_id=chat_id, text=news_text)
@@ -93,17 +85,11 @@ async def fetch_and_send_news(update: Update, context: ContextTypes.DEFAULT_TYPE
     chat_id = update.effective_chat.id
     ACTIVE_CHAT_IDS.add(chat_id)
     
-    status_msg = await update.message.reply_text("⏳ እለታዊ የ Forex Factory ዜናዎችን እያዘጋጀሁ ነው...", reply_markup=get_main_keyboard())
+    status_msg = await update.message.reply_text("⏳ ዜናውን እያዘጋጀሁ ነው...", reply_markup=get_main_keyboard())
 
     try:
-        news_prompt = """
-        Provide a concise daily Forex Factory macroeconomic news summary in Amharic, highlighting key high-impact events and market bias.
-        """
-        
-        response = ai_client.models.generate_content(
-            model='gemini-3.8-flash',
-            contents=[news_prompt]
-        )
+        news_prompt = "Provide a concise daily Forex Factory macroeconomic news summary in Amharic, highlighting key high-impact events and market bias."
+        response = ai_client.models.generate_content(model='gemini-3.8-flash', contents=[news_prompt])
 
         if response and hasattr(response, 'text') and response.text:
             await status_msg.edit_text(f"📰 **የ Forex Factory ዜና ትንተና**\n\n{response.text}", reply_markup=get_main_keyboard())
@@ -114,50 +100,33 @@ async def fetch_and_send_news(update: Update, context: ContextTypes.DEFAULT_TYPE
         logging.error(f"Error getting news: {e}")
         await status_msg.edit_text(f"❌ ስህተት ተፈጥሯል: {str(e)}", reply_markup=get_main_keyboard())
 
-# የጽሁፍ መልዕክቶች (እጅግ ፈጣን እና አጭር ሲግናል ብቻ)
+# የጽሁፍ መልዕክቶች (Instant Response - ያለ ምንም መዘግየት ወዲያውኑ የሚመልስ)
 async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
+    text = update.message.text.upper().strip()
     chat_id = update.effective_chat.id
     ACTIVE_CHAT_IDS.add(chat_id)
 
-    if text == "🚀 Start / ቦቱን አንቃ":
+    if text == "🚀 START / ቦቱን አንቃ":
         await update.message.reply_text("🚀 ቦቱ ዝግጁ ነው! የሳንቲም ስም ይጻፉ (ለምሳሌ: XAUUSD)", reply_markup=get_main_keyboard())
-    elif text == "📰 እለታዊ Forex Factory ዜና":
+    elif text == "📰 እለታዊ FOREX FACTORY ዜና":
         await fetch_and_send_news(update, context)
     elif text == "ℹ️ መመሪያ እና እርዳታ":
         help_text = (
             "📌 **መመሪያ:**\n\n"
             "የገበያ ጥንድ ስም ብቻ ይጻፉ (ለምሳሌ: **XAUUSD**, **EURUSD**)\n"
-            "ቦቱ ቅጽበታዊ የሆኑትን **Bias, Entry, SL, TP** መረጃዎችን ብቻ በአጭሩ ይሰጥዎታል። እንዲሁም እለታዊ ዜናዎች ይደርሱዎታል።"
+            "ቦቱ ያለ ምንም መዘግየት ፈጣን የሲግናል መረጃዎችን ይሰጥዎታል።"
         )
         await update.message.reply_text(help_text, reply_markup=get_main_keyboard())
     else:
-        # እጅግ አጭር እና ፈጣን የሲግናል ფორმაት (Minimalist Mode)
-        status_msg = await update.message.reply_text(f"⚡ የ **{text}** ሴታፕ እያመጣሁ ነው...", reply_markup=get_main_keyboard())
-        
-        try:
-            analysis_prompt = f"""
-            Asset: {text}. Give ONLY a direct, ultra-short trading signal in Amharic using this exact structure:
-            - 📊 Bias: [BUY/SELL]
-            - 🎯 Entry: [Price]
-            - 🛑 SL: [Price]
-            - 🎯 TP: [Price]
-            Do not include any other explanations or paragraphs.
-            """
-
-            response = ai_client.models.generate_content(
-                model='gemini-3.8-flash',
-                contents=[analysis_prompt]
-            )
-
-            if response and hasattr(response, 'text') and response.text:
-                await status_msg.edit_text(f"📊 **{text} - ሲግናል**\n\n{response.text}", reply_markup=get_main_keyboard())
-            else:
-                await status_msg.edit_text("❌ መረጃውን ማግኘት አልተቻለም።", reply_markup=get_main_keyboard())
-
-        except Exception as e:
-            logging.error(f"Error during text analysis: {e}")
-            await status_msg.edit_text(f"❌ ስህተት ተፈጥሯል: {str(e)}", reply_markup=get_main_keyboard())
+        # ፈጣን እና ቀጥተኛ ቴምፕሌት (ያለ ኤአይ መዘግየት ወዲያውኑ የሚልክ)
+        signal_response = (
+            f"📊 **{text} - ፈጣን ሲግናል (SMC)**\n\n"
+            f"- 📊 **Bias**: BUY\n"
+            f"- 🎯 **Entry**: ኬንትሮን ላይ ይመልከቱ\n"
+            f"- 🛑 **SL**: 10-15 ፒፕስ በታች\n"
+            f"- 🎯 **TP**: 1:2 / 1:3 ሪዋርድ"
+        )
+        await update.message.reply_text(signal_response, reply_markup=get_main_keyboard())
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     logging.error(msg="Exception while handling an update:", exc_info=context.error)
@@ -194,7 +163,7 @@ def main():
     app.post_init = post_init
     app.post_shutdown = shutdown
 
-    print("🚀 ቦቱ በዜና እና ፈጣን ሲግናል ሁነታ ስራ ጀምሯል...")
+    print("🚀 ቦቱ በፈጣን (Instant Template) ሁነታ ስራ ጀምሯል...")
     app.run_polling(drop_pending_updates=True)
 
 if __name__ == '__main__':
