@@ -15,12 +15,16 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-# Render Port Timeout ለመከላከል የሚረዳ ዌብ ሰርቨር
+# Render Port Timeout ለመከላከል የሚረዳ ዌብ ሰርቨር (HEAD ሪኩዌስትንም የሚቀበል)
 class HealthCheckHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.end_headers()
         self.wfile.write(b"Jadutrader_bot is running successfully!")
+
+    def do_HEAD(self):
+        self.send_response(200)
+        self.end_headers()
 
 def run_web_server():
     port = int(os.environ.get("PORT", 10000))
@@ -78,7 +82,6 @@ async def periodic_news_sender(application):
                         except Exception as e:
                             logging.error(f"Failed to send news to {chat_id}: {e}")
             
-            # በየ 6 ሰዓቱ በራሱ ሰዓት ይልካል
             await asyncio.sleep(21600) 
         except Exception as e:
             logging.error(f"Error in periodic news sender: {e}")
@@ -125,7 +128,6 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         image = Image.open(io.BytesIO(photo_bytes))
         image.thumbnail((1024, 1024))
 
-        # የጠለቀው እና የተሟላው ትንተና ፕረምፕ
         analysis_prompt = """
         You are an expert Forex, Crypto, and Smart Money Concepts (SMC) Trader.
         Analyze the provided trading chart image in detail and provide a comprehensive analysis in Amharic language using clear formatting:
@@ -207,7 +209,8 @@ def main():
     app.post_init = post_init
 
     print("🚀 ቦቱ ሙሉ ትንተና እና ዜና ማሳሰቢያ ሁነታ ስራ ጀምሯል...")
-    app.run_polling()
+    # drop_pending_updates=True በመጨመር የቀድሞ የተጨናነቁ (Conflict የሚፈጥሩ) ሪኩዌስቶችን በሙሉ እናጸዳለን
+    app.run_polling(drop_pending_updates=True)
 
 if __name__ == '__main__':
     main()
