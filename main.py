@@ -54,9 +54,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ACTIVE_CHAT_IDS.add(chat_id)
     
     welcome_text = (
-        "ሰላም! እኔ የ AI Forex & SMC Trading Analyst ቦት ነኝ። 🤖📊\n\n"
-        "⚡ ፎቶ መላክ ሳይጠበቅብዎት የሳንቲሙን ስም (ለምሳሌ: `XAUUSD` ወይም `EURUSD`) በመጻፍ ብቻ ፈጣን የ SMC ትንተና፣ Entry፣ SL እና TP ማግኘት ይችላሉ!\n\n"
-        "እለታዊ ዜናዎችን ለማግኘት ከታች ያሉትን አዝራሮች ይጠቀሙ።"
+        "ሰላም! እኔ የ AI Forex & SMC Trading Analyst ቦት ነኝ። 🤖⚡\n\n"
+        "🚀 አሁን ፍጥነቱ ተስተካክሏል! የሳንቲሙን ስም ብቻ (ለምሳሌ: `XAUUSD` ወይም `EURUSD`) ይጻፉ።\n"
+        "ቦቱ ዋና ዋና ነጥቦቹን ብቻ (Bias, Entry, SL, TP) በአጭር ጊዜ ውስጥ ይሰጥዎታል።"
     )
     await update.message.reply_text(welcome_text, reply_markup=get_main_keyboard())
 
@@ -67,12 +67,7 @@ async def periodic_news_sender(application):
         while True:
             if ACTIVE_CHAT_IDS:
                 news_prompt = """
-                You are an expert Forex Fundamental Analyst and Forex Factory news strategist.
-                Provide a detailed, professional daily market and Forex Factory news briefing in Amharic focusing on:
-                1. 🌍 High-Impact Forex Factory News (CPI, NFP, Interest Rate decisions, GDP).
-                2. 🪙 Market Sentiment on major pairs and Gold (XAUUSD).
-                3. 💡 Professional advice on how traders should manage risk during these news events.
-                Keep it highly structured, professional, and entirely in Amharic.
+                Provide a short and concise high-impact daily Forex Factory news summary in Amharic (only key bullet points).
                 """
                 
                 response = ai_client.models.generate_content(
@@ -81,7 +76,7 @@ async def periodic_news_sender(application):
                 )
                 
                 if response and hasattr(response, 'text') and response.text:
-                    news_text = f"📰 **እለታዊ የ Forex Factory እና ማክሮ ኢኮኖሚ ዜና**\n\n{response.text}"
+                    news_text = f"📰 **አጭር የ Forex Factory ዜና ማጠቃለያ**\n\n{response.text}"
                     
                     for chat_id in list(ACTIVE_CHAT_IDS):
                         try:
@@ -93,17 +88,16 @@ async def periodic_news_sender(application):
     except asyncio.CancelledError:
         logging.info("Periodic news task successfully cancelled.")
 
-# ዜና ማምጫ ፌንክሽን
+# ዜና ማምጫ ፌንክሽን (በዋና ዋና ነጥብ ብቻ)
 async def fetch_and_send_news(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     ACTIVE_CHAT_IDS.add(chat_id)
     
-    status_msg = await update.message.reply_text("⏳ እለታዊ የ Forex Factory ዜናዎችን እና የገበያ ትንተና እያዘጋጀሁ ነው...", reply_markup=get_main_keyboard())
+    status_msg = await update.message.reply_text("⏳ ዜናውን በአጭሩ እያዘጋጀሁ ነው...", reply_markup=get_main_keyboard())
 
     try:
         news_prompt = """
-        Provide a current Forex Factory and macroeconomic daily news analysis in Amharic, highlighting key upcoming events, high-impact news, and market bias.
-        Keep it professional and entirely in Amharic.
+        Provide a concise daily Forex Factory macroeconomic news summary in Amharic, highlighting only high-impact events and market bias in brief bullet points.
         """
         
         response = ai_client.models.generate_content(
@@ -112,7 +106,7 @@ async def fetch_and_send_news(update: Update, context: ContextTypes.DEFAULT_TYPE
         )
 
         if response and hasattr(response, 'text') and response.text:
-            await status_msg.edit_text(f"📰 **እለታዊ የ Forex Factory ዜና ትንተና**\n\n{response.text}", reply_markup=get_main_keyboard())
+            await status_msg.edit_text(f"📰 **የ Forex Factory ዜና ማጠቃለያ**\n\n{response.text}", reply_markup=get_main_keyboard())
         else:
             await status_msg.edit_text("❌ ዜናውን ማግኘት አልተቻለም።", reply_markup=get_main_keyboard())
 
@@ -120,44 +114,36 @@ async def fetch_and_send_news(update: Update, context: ContextTypes.DEFAULT_TYPE
         logging.error(f"Error getting news: {e}")
         await status_msg.edit_text(f"❌ ስህተት ተፈጥሯል: {str(e)}", reply_markup=get_main_keyboard())
 
-# የጽሁፍ መልዕክቶችን እና የሳንቲም ስሞችን አስተናጋጅ (ፈጣን የጽሁፍ SMC ትንተና የሚሰጥበት)
+# የጽሁፍ መልዕክቶችን እና የሳንቲም ስሞችን አስተናጋጅ (ለፍጥነት ሲባል አጭር መልእክት ብቻ የሚሰጥ)
 async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     chat_id = update.effective_chat.id
     ACTIVE_CHAT_IDS.add(chat_id)
 
     if text == "🚀 Start / ቦቱን አንቃ":
-        await update.message.reply_text("🚀 ቦቱ ሙሉ በሙሉ ንቁ (Active) ነው! የሚፈልጉትን የሳንቲም ስም (ለምሳሌ XAUUSD) ይጻፉ።", reply_markup=get_main_keyboard())
+        await update.message.reply_text("🚀 ቦቱ ዝግጁ ነው! የሚፈልጉትን የሳንቲም ስም (ለምሳሌ XAUUSD) ይጻፉ።", reply_markup=get_main_keyboard())
     elif text == "📰 እለታዊ Forex Factory ዜና":
         await fetch_and_send_news(update, context)
     elif text == "ℹ️ መመሪያ እና እርዳታ":
         help_text = (
-            "📌 **የቦቱ አጠቃቀም መመሪያ:**\n\n"
-            "1. ⚡ ማንኛውንም የገበያ ጥንድ ስም (ለምሳሌ **XAUUSD**, **EURUSD**, **BTCUSD**) በቀጥታ ይጻፉ።\n"
-            "2. ቦቱ ወዲያውኑ የ **SMC ትንተና**፣ **Entry**፣ **SL** እና **TP** በሰከንዶች ውስጥ በጽሁፍ ያዘጋጅልዎታል።\n"
-            "3. **እለታዊ Forex Factory ዜናዎችን** ለማግኘት ከታች ያለውን አዝራር ይጠቀሙ።"
+            "📌 **አጭር መመሪያ:**\n\n"
+            "የገበያ ጥንድ ስም ብቻ ይጻፉ (ለምሳሌ: **XAUUSD**, **EURUSD**)\n"
+            "ቦቱ ዋና ዋና ነጥቦቹን ብቻ (Bias, Entry, SL, TP) በሰከንዶች ውስጥ በግልጽ ያሳዩዎታል።"
         )
         await update.message.reply_text(help_text, reply_markup=get_main_keyboard())
     else:
-        # ተጠቃሚው የሳንቲም ስም ሲጽፍ (ለምሳሌ XAUUSD) በሰከንዶች ውስጥ የሚሰጥ ፈጣን ትንተና
-        status_msg = await update.message.reply_text(f"⏳ ለ **{text}** የሚሆን የ SMC ትንተና እና ሴታፕ እያዘጋጀሁ ነው...", reply_markup=get_main_keyboard())
+        # ፈጣን እና አጭር ትንተና (ዋና ዋና ነጥብ ብቻ)
+        status_msg = await update.message.reply_text(f"⚡ የ **{text}** ዋና ዋና ሴታፖችን እያዘጋጀሁ ነው...", reply_markup=get_main_keyboard())
         
         try:
             analysis_prompt = f"""
-            You are an expert Forex, Crypto, and Smart Money Concepts (SMC) Trader.
-            Provide a professional and detailed trading analysis and signal setup in Amharic for the asset/symbol: {text}.
-            
-            Include the following sections clearly:
-            1. 📊 Market Bias / Trend (BUY / SELL)
-            2. 🏦 SMC Key Levels (Order Blocks, FVG)
-            3. 🎯 **Trade Setup**:
-               - Entry Price (የመግቢያ ዋጋ)
-               - Stop Loss - SL (ማቆሚያ ዋጋ)
-               - Take Profit - TP (የትርፍ ኢላማዎች: TP 1 & TP 2)
-               - Risk to Reward Ratio
-            4. 🛡️ Risk Management & Confirmations
-            
-            Keep it professional, structured, and entirely in Amharic.
+            Analyze asset: {text} using SMC and provide ONLY a very short, concise trading signal in Amharic with bullet points:
+            - 📊 Bias (BUY / SELL)
+            - 🎯 Entry Price
+            - 🛑 Stop Loss (SL)
+            - 🎯 Take Profit (TP)
+            - 🏦 Short SMC Reason (Order Block/FVG in 1 sentence)
+            Keep it extremely brief and fast.
             """
 
             response = ai_client.models.generate_content(
@@ -166,9 +152,9 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
             )
 
             if response and hasattr(response, 'text') and response.text:
-                await status_msg.edit_text(f"📊 **የ {text} የ SMC ትንተና እና ሴታፕ**\n\n{response.text}", reply_markup=get_main_keyboard())
+                await status_msg.edit_text(f"📊 **{text} - ፈጣን ሴታፕ**\n\n{response.text}", reply_markup=get_main_keyboard())
             else:
-                await status_msg.edit_text("❌ ትንተናውን ማግኘት አልተቻለም። እባክዎ እንደገና ይሞክሩ።", reply_markup=get_main_keyboard())
+                await status_msg.edit_text("❌ መረጃውን ማግኘት አልተቻለም።", reply_markup=get_main_keyboard())
 
         except Exception as e:
             logging.error(f"Error during text analysis: {e}")
@@ -209,7 +195,7 @@ def main():
     app.post_init = post_init
     app.post_shutdown = shutdown
 
-    print("🚀 ቦቱ በጽሁፍ ፈጣን ትንተና ሁነታ ስራ ጀምሯል...")
+    print("🚀 ቦቱ በፈጣን (Short Summary) ሁነታ ስራ ጀምሯል...")
     app.run_polling(drop_pending_updates=True)
 
 if __name__ == '__main__':
