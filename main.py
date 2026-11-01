@@ -6,8 +6,6 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 from google import genai
-from PIL import Image, ImageDraw
-import io
 
 # Logging ማስተካከያ
 logging.basicConfig(
@@ -40,7 +38,7 @@ ai_client = genai.Client(api_key=GEMINI_API_KEY)
 
 # ተጠቃሚዎችን ለመያዝ የሚረዳ ዝርዝር
 ACTIVE_CHAT_IDS = set()
-news_task = None  # የታስኩን ሁኔታ ለመቆጣጠር
+news_task = None
 
 # ቋሚ አዝራሮች
 def get_main_keyboard():
@@ -57,12 +55,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     welcome_text = (
         "ሰላም! እኔ የ AI Forex & SMC Trading Analyst ቦት ነኝ። 🤖📊\n\n"
-        "✅ እለታዊ Forex Factory ዜናዎች፣ SMC ትንተና፣ Entry፣ SL እና TP በዝርዝር ተዘጋጅተዋል!\n"
-        "የቻርት ስክሪንሾት በመላክ ሙሉ ሴታፕ ማግኘት ይችላሉ፤ ወይም ከታች ያሉትን አዝራሮች ይጠቀሙ።"
+        "⚡ ፎቶ መላክ ሳይጠበቅብዎት የሳንቲሙን ስም (ለምሳሌ: `XAUUSD` ወይም `EURUSD`) በመጻፍ ብቻ ፈጣን የ SMC ትንተና፣ Entry፣ SL እና TP ማግኘት ይችላሉ!\n\n"
+        "እለታዊ ዜናዎችን ለማግኘት ከታች ያሉትን አዝራሮች ይጠቀሙ።"
     )
     await update.message.reply_text(welcome_text, reply_markup=get_main_keyboard())
 
-# አውቶማቲክ የዜና ማሳሰቢያ በጀርባ (Background Task) የሚሰራ (ለስላሳ ስረዛ ያለው)
+# አውቶማቲክ የዜና ማሳሰቢያ በጀርባ (Background Task)
 async def periodic_news_sender(application):
     await asyncio.sleep(15)
     try:
@@ -122,101 +120,59 @@ async def fetch_and_send_news(update: Update, context: ContextTypes.DEFAULT_TYPE
         logging.error(f"Error getting news: {e}")
         await status_msg.edit_text(f"❌ ስህተት ተፈጥሯል: {str(e)}", reply_markup=get_main_keyboard())
 
-# የጽሁፍ መልዕክቶችን እና አዝራሮችን አስተናጋጅ
+# የጽሁፍ መልዕክቶችን እና የሳንቲም ስሞችን አስተናጋጅ (ፈጣን የጽሁፍ SMC ትንተና የሚሰጥበት)
 async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     chat_id = update.effective_chat.id
     ACTIVE_CHAT_IDS.add(chat_id)
 
     if text == "🚀 Start / ቦቱን አንቃ":
-        await update.message.reply_text("🚀 ቦቱ ሙሉ በሙሉ ንቁ (Active) ነው! የሚፈልጉትን የቻርት ስክሪንሾት መላክ ይችላሉ።", reply_markup=get_main_keyboard())
+        await update.message.reply_text("🚀 ቦቱ ሙሉ በሙሉ ንቁ (Active) ነው! የሚፈልጉትን የሳንቲም ስም (ለምሳሌ XAUUSD) ይጻፉ።", reply_markup=get_main_keyboard())
     elif text == "📰 እለታዊ Forex Factory ዜና":
         await fetch_and_send_news(update, context)
     elif text == "ℹ️ መመሪያ እና እርዳታ":
         help_text = (
             "📌 **የቦቱ አጠቃቀም መመሪያ:**\n\n"
-            "1. 📊 ማንኛውንም የ Forex ወይም Crypto ቻርት ስክሪንሾት በቀጥታ ይላኩ።\n"
-            "2. ቦቱ የ **SMC ትንተና** (BOS, CHOCH, Order Blocks, FVG)፣ **Entry**፣ **SL** እና **TP** በዝርዝር ያዘጋጅልዎታል።\n"
+            "1. ⚡ ማንኛውንም የገበያ ጥንድ ስም (ለምሳሌ **XAUUSD**, **EURUSD**, **BTCUSD**) በቀጥታ ይጻፉ።\n"
+            "2. ቦቱ ወዲያውኑ የ **SMC ትንተና**፣ **Entry**፣ **SL** እና **TP** በሰከንዶች ውስጥ በጽሁፍ ያዘጋጅልዎታል።\n"
             "3. **እለታዊ Forex Factory ዜናዎችን** ለማግኘት ከታች ያለውን አዝራር ይጠቀሙ።"
         )
         await update.message.reply_text(help_text, reply_markup=get_main_keyboard())
     else:
-        await update.message.reply_text("አማራጭ ይምረጡ ወይም ቻርት ስክሪንሾት ይላኩ።", reply_markup=get_main_keyboard())
-
-# የChart ፎቶ ተቀብሎ ሙሉ SMC እና Trade Setup (Entry, SL, TP) የመተንተን ተግባር
-async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
-    ACTIVE_CHAT_IDS.add(chat_id)
-    
-    status_msg = await update.message.reply_text("⏳ ቻርቱን በዝርዝር እየተነተንኩ፣ SMC ሴታፕ፣ Entry፣ SL እና TP እያዘጋጀሁ ነው...", reply_markup=get_main_keyboard())
-
-    try:
-        photo_file = await update.message.photo[-1].get_file()
-        photo_bytes = await asyncio.wait_for(photo_file.download_as_bytearray(), timeout=30.0)
+        # ተጠቃሚው የሳንቲም ስም ሲጽፍ (ለምሳሌ XAUUSD) በሰከንዶች ውስጥ የሚሰጥ ፈጣን ትንተና
+        status_msg = await update.message.reply_text(f"⏳ ለ **{text}** የሚሆን የ SMC ትንተና እና ሴታፕ እያዘጋጀሁ ነው...", reply_markup=get_main_keyboard())
         
-        image = Image.open(io.BytesIO(photo_bytes))
-        image.thumbnail((1024, 1024))
-
-        analysis_prompt = """
-        You are an expert Forex, Crypto, and Smart Money Concepts (SMC) Trader.
-        Analyze the provided trading chart image in detail and provide a comprehensive analysis in Amharic language using clear formatting:
-        
-        1. 📊 Trend & Market Structure (BOS, CHOCH)
-        2. 🏦 SMC Elements (Order Blocks, FVG, Liquidity Sweeps)
-        3. 📉 Support & Resistance Levels
-        4. 🌍 Fundamental & Forex Factory News Context
-        5. 🎯 **Trade Setup**: 
-           - Bias (BUY/SELL)
-           - Entry Price (የመግቢያ ዋጋ)
-           - Stop Loss - SL (ማቆሚያ ዋጋ)
-           - Take Profit - TP (የትርፍ ኢላማዎች: TP 1 & TP 2)
-           - Risk to Reward Ratio
-        6. 🛡️ **Required Confirmations & Risk Management**: 
-           - ገበያው ወደዚህ ሴታፕ ሲደርስ መግባት ከመወሰኑ በፊት ሊጠበቁ የሚገቡ የዋጋ ማረጋገጫዎች እና የገንዘብ አያያዝ (Risk Management) ማሳሰቢያ።
-
-        Keep it professional, structured, and entirely in Amharic.
-        """
-
-        loop = asyncio.get_running_loop()
-        response = await asyncio.wait_for(
-            loop.run_in_executor(
-                None, 
-                lambda: ai_client.models.generate_content(
-                    model='gemini-3.8-flash',
-                    contents=[image, analysis_prompt]
-                )
-            ),
-            timeout=50.0
-        )
-
-        if response and hasattr(response, 'text') and response.text:
-            analysis_text = response.text
-
-            draw_image = image.copy()
-            width, height = draw_image.size
-            banner_height = 80
-            new_image = Image.new("RGB", (width, height + banner_height), (20, 20, 20))
-            new_image.paste(draw_image, (0, 0))
+        try:
+            analysis_prompt = f"""
+            You are an expert Forex, Crypto, and Smart Money Concepts (SMC) Trader.
+            Provide a professional and detailed trading analysis and signal setup in Amharic for the asset/symbol: {text}.
             
-            draw_banner = ImageDraw.Draw(new_image)
-            draw_banner.text((20, height + 25), "🤖 Jadu AI Forex & SMC Signal Bot", fill=(0, 255, 128))
+            Include the following sections clearly:
+            1. 📊 Market Bias / Trend (BUY / SELL)
+            2. 🏦 SMC Key Levels (Order Blocks, FVG)
+            3. 🎯 **Trade Setup**:
+               - Entry Price (የመግቢያ ዋጋ)
+               - Stop Loss - SL (ማቆሚያ ዋጋ)
+               - Take Profit - TP (የትርፍ ኢላማዎች: TP 1 & TP 2)
+               - Risk to Reward Ratio
+            4. 🛡️ Risk Management & Confirmations
+            
+            Keep it professional, structured, and entirely in Amharic.
+            """
 
-            bio = io.BytesIO()
-            bio.name = 'signal_chart.jpg'
-            new_image.save(bio, 'JPEG')
-            bio.seek(0)
+            response = ai_client.models.generate_content(
+                model='gemini-3.8-flash',
+                contents=[analysis_prompt]
+            )
 
-            await status_msg.delete()
-            await update.message.reply_photo(photo=bio, caption=analysis_text, reply_markup=get_main_keyboard())
-        else:
-            await status_msg.edit_text("❌ ኤአይ ሞዴሉ ምላሽ አልሰጠም፣ እባክዎ እንደገና ይሞክሩ።", reply_markup=get_main_keyboard())
+            if response and hasattr(response, 'text') and response.text:
+                await status_msg.edit_text(f"📊 **የ {text} የ SMC ትንተና እና ሴታፕ**\n\n{response.text}", reply_markup=get_main_keyboard())
+            else:
+                await status_msg.edit_text("❌ ትንተናውን ማግኘት አልተቻለም። እባክዎ እንደገና ይሞክሩ።", reply_markup=get_main_keyboard())
 
-    except asyncio.TimeoutError:
-        logging.error("Analysis operation timed out.")
-        await status_msg.edit_text("⏱️ ትንተናው ትንሽ ጊዜ ወስዷል። እባክዎ ቻርቱን እንደገና ይላኩ።", reply_markup=get_main_keyboard())
-    except Exception as e:
-        logging.error(f"Error during analysis: {e}")
-        await status_msg.edit_text(f"❌ ስህተት ተፈጥሯል: {str(e)}", reply_markup=get_main_keyboard())
+        except Exception as e:
+            logging.error(f"Error during text analysis: {e}")
+            await status_msg.edit_text(f"❌ ስህተት ተፈጥሯል: {str(e)}", reply_markup=get_main_keyboard())
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     logging.error(msg="Exception while handling an update:", exc_info=context.error)
@@ -234,7 +190,6 @@ def main():
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("news", fetch_and_send_news))
-    app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_messages))
     app.add_error_handler(error_handler)
 
@@ -254,7 +209,7 @@ def main():
     app.post_init = post_init
     app.post_shutdown = shutdown
 
-    print("🚀 ቦቱ ሙሉ ትንተና እና ዜና ማሳሰቢያ ሁነታ ስራ ጀምሯል...")
+    print("🚀 ቦቱ በጽሁፍ ፈጣን ትንተና ሁነታ ስራ ጀምሯል...")
     app.run_polling(drop_pending_updates=True)
 
 if __name__ == '__main__':
